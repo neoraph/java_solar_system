@@ -1,0 +1,33 @@
+plugins {
+    id 'application'
+}
+
+group = 'com.raph'
+version = '1.0.0'
+
+def javaVersion = (findProperty('javaVersion') ?: '25') as Integer
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(javaVersion)
+    }
+}
+
+application {
+    mainClass = 'com.raph.solarsystem.SolarSystemApp'
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.2'
+
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+tasks.named('test') {
+    useJUnitPlatform()
+}

@@ -1,0 +1,10 @@
+[
+  {"name":"Mercury","semiMajorAu":0.387,"eccentricity":0.2056,"periodDays":87.97,"inclinationDeg":7.00,"color":"#AAAAAA"},
+  {"name":"Venus","semiMajorAu":0.723,"eccentricity":0.0068,"periodDays":224.70,"inclinationDeg":3.39,"color":"#DCC896"},
+  {"name":"Earth","semiMajorAu":1.000,"eccentricity":0.0167,"periodDays":365.25,"inclinationDeg":0.00,"color":"#5082FF"},
+  {"name":"Mars","semiMajorAu":1.524,"eccentricity":0.0934,"periodDays":686.98,"inclinationDeg":1.85,"color":"#DC503C"},
+  {"name":"Jupiter","semiMajorAu":5.203,"eccentricity":0.0489,"periodDays":4332.59,"inclinationDeg":1.30,"color":"#D2AA78"},
+  {"name":"Saturn","semiMajorAu":9.537,"eccentricity":0.0565,"periodDays":10759.22,"inclinationDeg":2.49,"color":"#D2BE8C"},
+  {"name":"Uranus","semiMajorAu":19.191,"eccentricity":0.0472,"periodDays":30685.4,"inclinationDeg":0.77,"color":"#82C8D2"},
+  {"name":"Neptune","semiMajorAu":30.07,"eccentricity":0.0086,"periodDays":60190.0,"inclinationDeg":1.77,"color":"#506EC8"}
+]
