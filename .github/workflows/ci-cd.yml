@@ -20,15 +20,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java 21
+      - name: Set up Java 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
           cache: gradle
 
       - name: Build
-        run: ./gradlew -PjavaVersion=21 clean build --no-daemon
+        run: ./gradlew clean build --no-daemon
 
       - name: Upload Jar Artifact
         uses: actions/upload-artifact@v4
@@ -47,15 +47,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up Java 21
+      - name: Set up Java 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "21"
+          java-version: "25"
           cache: gradle
 
       - name: Build Release Jar
-        run: ./gradlew -PjavaVersion=21 clean jar --no-daemon
+        run: ./gradlew clean jar --no-daemon
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
