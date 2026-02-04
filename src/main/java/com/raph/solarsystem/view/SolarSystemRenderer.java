@@ -37,7 +37,7 @@ public class SolarSystemRenderer {
                 RenderingHints.KEY_ANTIALIASING,
                 antialiasEnabled ? RenderingHints.VALUE_ANTIALIAS_ON : RenderingHints.VALUE_ANTIALIAS_OFF
         );
-        drawSun(g2, ctx.centerX(), ctx.centerY(), ctx.locale());
+        drawSun(g2, model, ctx);
         drawOrbits(g2, model, ctx);
         drawPlanets(g2, model, ctx);
         drawOverlay(g2, model, ctx);
@@ -71,12 +71,20 @@ public class SolarSystemRenderer {
         }
     }
 
-    private void drawSun(Graphics2D g2, double cx, double cy, java.util.Locale locale) {
+    private void drawSun(Graphics2D g2, SolarSystemModel model, RenderContext ctx) {
+        double cx = ctx.centerX();
+        double cy = ctx.centerY();
+        double minPerihelionAu = model.planets().stream()
+                .mapToDouble(p -> p.semiMajorAu() * (1.0 - p.eccentricity()))
+                .min()
+                .orElse(0.3);
+        double minPerihelionPx = minPerihelionAu * ctx.scale();
+        double r = clamp(minPerihelionPx * 0.35, 1.2, 18.0);
+
         g2.setColor(new Color(255, 210, 60));
-        double r = 18.0;
         g2.fill(new Ellipse2D.Double(cx - r, cy - r, r * 2, r * 2));
         g2.setColor(new Color(255, 230, 140));
-        g2.drawString(I18n.tr(locale, "renderer.sun"), (int) (cx + 22), (int) (cy - 10));
+        g2.drawString(I18n.tr(ctx.locale(), "renderer.sun"), (int) (cx + r + 6), (int) (cy - r - 2));
     }
 
     private void drawOrbits(Graphics2D g2, SolarSystemModel model, RenderContext ctx) {
