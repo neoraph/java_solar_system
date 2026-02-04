@@ -81,7 +81,7 @@ flowchart LR
     A[ControlsPanel<br/>UI events] --> B[SolarSystemController<br/>state + simulation flags]
     B --> C[SolarSystemModel<br/>time + planets]
     C --> D[SolarSystemRenderer<br/>draw orbits/planets/HUD]
-    D --> E[SolarPanel (Swing)<br/>paintComponent]
+    D --> E[SolarPanel - Swing<br/>paintComponent]
     F[planets.json] --> C
 ```
 
