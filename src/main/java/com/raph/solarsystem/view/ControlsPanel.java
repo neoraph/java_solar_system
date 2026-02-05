@@ -55,12 +55,12 @@ public class ControlsPanel extends JPanel {
         this.onZoomChanged = onZoomChanged;
         this.onLocaleChanged = onLocaleChanged;
 
-        setBackground(new Color(15, 18, 30));
+        setBackground(ThemeColors.PANEL_BG);
         setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
         setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
 
         speedLabel = new JLabel();
-        speedLabel.setForeground(new Color(210, 210, 230));
+        speedLabel.setForeground(ThemeColors.CONTROL_FG);
 
         JSlider speedSlider = new JSlider(1, 400, 15);
         speedSlider.setOpaque(false);
@@ -92,7 +92,7 @@ public class ControlsPanel extends JPanel {
         });
 
         tiltBox = new JCheckBox();
-        tiltBox.setForeground(new Color(210, 210, 230));
+        tiltBox.setForeground(ThemeColors.CONTROL_FG);
         tiltBox.setOpaque(false);
         tiltBox.setSelected(controller.tiltEnabled());
         tiltBox.addActionListener(e -> {
@@ -101,7 +101,7 @@ public class ControlsPanel extends JPanel {
         });
 
         tiltLabel = new JLabel();
-        tiltLabel.setForeground(new Color(210, 210, 230));
+        tiltLabel.setForeground(ThemeColors.CONTROL_FG);
         JSlider tiltSlider = new JSlider(0, 100, 60);
         tiltSlider.setOpaque(false);
         tiltSlider.addChangeListener(e -> {
@@ -112,7 +112,7 @@ public class ControlsPanel extends JPanel {
         });
 
         hoverBox = new JCheckBox();
-        hoverBox.setForeground(new Color(210, 210, 230));
+        hoverBox.setForeground(ThemeColors.CONTROL_FG);
         hoverBox.setOpaque(false);
         hoverBox.setSelected(true);
         hoverBox.addActionListener(e -> {
@@ -121,7 +121,7 @@ public class ControlsPanel extends JPanel {
         });
 
         labelsBox = new JCheckBox();
-        labelsBox.setForeground(new Color(210, 210, 230));
+        labelsBox.setForeground(ThemeColors.CONTROL_FG);
         labelsBox.setOpaque(false);
         labelsBox.setSelected(controller.labelsVisible());
         labelsBox.addActionListener(e -> {
@@ -130,7 +130,7 @@ public class ControlsPanel extends JPanel {
         });
 
         fpsLabel = new JLabel();
-        fpsLabel.setForeground(new Color(210, 210, 230));
+        fpsLabel.setForeground(ThemeColors.CONTROL_FG);
         JSlider fpsSlider = new JSlider(10, 120, 30);
         fpsSlider.setOpaque(false);
         fpsSlider.addChangeListener(e -> {
@@ -146,7 +146,7 @@ public class ControlsPanel extends JPanel {
         fps60.addActionListener(e -> setFpsPreset(fpsSlider, 60));
 
         perfModeBox = new JCheckBox();
-        perfModeBox.setForeground(new Color(210, 210, 230));
+        perfModeBox.setForeground(ThemeColors.CONTROL_FG);
         perfModeBox.setOpaque(false);
         perfModeBox.addActionListener(e -> {
             onPerformanceModeChanged.accept(perfModeBox.isSelected());
@@ -154,7 +154,7 @@ public class ControlsPanel extends JPanel {
         });
 
         zoomLabel = new JLabel();
-        zoomLabel.setForeground(new Color(210, 210, 230));
+        zoomLabel.setForeground(ThemeColors.CONTROL_FG);
         JSlider zoomSlider = new JSlider(25, 400, 100);
         zoomSlider.setOpaque(false);
         zoomSlider.addChangeListener(e -> {
@@ -167,7 +167,7 @@ public class ControlsPanel extends JPanel {
         zoomFit.addActionListener(e -> setZoomPreset(zoomSlider, 100));
 
         languageLabel = new JLabel();
-        languageLabel.setForeground(new Color(210, 210, 230));
+        languageLabel.setForeground(ThemeColors.CONTROL_FG);
         languageBox = new JComboBox<>(new LocaleOption[]{
                 new LocaleOption(I18n.EN),
                 new LocaleOption(I18n.FR),

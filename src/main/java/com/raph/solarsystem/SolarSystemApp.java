@@ -8,6 +8,7 @@ import com.raph.solarsystem.view.ControlsPanel;
 import com.raph.solarsystem.view.PlanetRender;
 import com.raph.solarsystem.view.RenderContext;
 import com.raph.solarsystem.view.SolarSystemRenderer;
+import com.raph.solarsystem.view.ThemeColors;
 
 import javax.swing.*;
 import java.awt.*;
@@ -47,7 +48,6 @@ public class SolarSystemApp {
 
     static class SolarPanel extends JPanel {
         private static final int DEFAULT_FPS = 30;
-        private static final Color SPACE = new Color(5, 8, 18);
         private static final double MIN_ZOOM = 0.25;
         private static final double MAX_ZOOM = 4.0;
         private final SolarSystemController controller;
@@ -61,7 +61,7 @@ public class SolarSystemApp {
         private double zoom = 1.0;
 
         SolarPanel() {
-            setBackground(SPACE);
+            setBackground(ThemeColors.SPACE_BG);
             setDoubleBuffered(true);
 
             controller = new SolarSystemController(new SolarSystemModel());
@@ -184,7 +184,7 @@ public class SolarSystemApp {
                 starFieldWidth = w;
                 starFieldHeight = h;
                 Graphics2D sg = starField.createGraphics();
-                sg.setColor(new Color(200, 200, 220));
+                sg.setColor(ThemeColors.STAR);
                 for (Point p : stars) {
                     int x = (p.x + w / 2) % w;
                     int y = (p.y + h / 2) % h;

@@ -15,11 +15,6 @@ import java.util.List;
 import java.util.Map;
 
 public class SolarSystemRenderer {
-    private static final Color ORBIT_COLOR = new Color(80, 90, 120);
-    private static final Color LABEL_COLOR = new Color(220, 220, 230);
-    private static final Color LABEL_LEADER_COLOR = new Color(170, 182, 210, 180);
-    private static final Color HUD_BG = new Color(12, 16, 28, 210);
-
     private boolean tiltEnabled = true;
     private double tiltStrength = 0.6;
     private boolean antialiasEnabled = true;
@@ -81,14 +76,14 @@ public class SolarSystemRenderer {
         double minPerihelionPx = minPerihelionAu * ctx.scale();
         double r = clamp(minPerihelionPx * 0.35, 1.2, 18.0);
 
-        g2.setColor(new Color(255, 210, 60));
+        g2.setColor(ThemeColors.SUN);
         g2.fill(new Ellipse2D.Double(cx - r, cy - r, r * 2, r * 2));
-        g2.setColor(new Color(255, 230, 140));
+        g2.setColor(ThemeColors.SUN_LABEL);
         g2.drawString(I18n.tr(ctx.locale(), "renderer.sun"), (int) (cx + r + 6), (int) (cy - r - 2));
     }
 
     private void drawOrbits(Graphics2D g2, SolarSystemModel model, RenderContext ctx) {
-        g2.setColor(ORBIT_COLOR);
+        g2.setColor(ThemeColors.ORBIT);
         if (!orbitCacheValid || isOrbitCacheStale(model, ctx)) {
             rebuildOrbitCache(model, ctx);
         }
@@ -122,7 +117,7 @@ public class SolarSystemRenderer {
                     draw.radius() * 2
             ));
 
-            g2.setColor(LABEL_COLOR);
+            g2.setColor(ThemeColors.LABEL);
             String cacheKey = draw.planet().name() + "|" + ctx.locale().getLanguage();
             String label = labelCache.computeIfAbsent(
                     cacheKey,
@@ -151,7 +146,7 @@ public class SolarSystemRenderer {
                 String label = item.label();
                 Point labelAnchor = placeLabel(draw, label, fm, occupiedLabels, ctx.width(), ctx.height());
                 drawLeaderLine(g2, draw, labelAnchor, fm.stringWidth(label), fm);
-                g2.setColor(LABEL_COLOR);
+                g2.setColor(ThemeColors.LABEL);
                 g2.drawString(label, labelAnchor.x, labelAnchor.y);
                 occupiedLabels.add(new Rectangle(
                         labelAnchor.x - 2,
@@ -164,7 +159,7 @@ public class SolarSystemRenderer {
     }
 
     private void drawOverlay(Graphics2D g2, SolarSystemModel model, RenderContext ctx) {
-        g2.setColor(new Color(200, 210, 230));
+        g2.setColor(ThemeColors.OVERLAY_TEXT);
         double years = model.simDays() / 365.25;
         String pausedSuffix = ctx.paused() ? I18n.tr(ctx.locale(), "renderer.pausedSuffix") : "";
         String text = I18n.tr(
@@ -205,9 +200,9 @@ public class SolarSystemRenderer {
         int x = ctx.width() - width - 12;
         int y = 12;
 
-        g2.setColor(HUD_BG);
+        g2.setColor(ThemeColors.HUD_BG);
         g2.fillRoundRect(x, y, width, height, 12, 12);
-        g2.setColor(new Color(220, 230, 245));
+        g2.setColor(ThemeColors.HUD_TEXT);
         g2.drawRoundRect(x, y, width, height, 12, 12);
 
         int textY = y + padding + fm.getAscent();
@@ -338,7 +333,7 @@ public class SolarSystemRenderer {
 
         Stroke prevStroke = g2.getStroke();
         Color prevColor = g2.getColor();
-        g2.setColor(LABEL_LEADER_COLOR);
+        g2.setColor(ThemeColors.LEADER);
         g2.setStroke(new BasicStroke(1.0f));
         g2.drawLine(startX, startY, endX, endY);
         g2.setStroke(prevStroke);
