@@ -51,4 +51,25 @@ class SolarSystemControllerTest {
         controller.setLabelsVisible(true);
         assertTrue(controller.labelsVisible());
     }
+
+    @Test
+    void moonsVisibilityDefaultsToTrueAndCanBeToggled() {
+        SolarSystemController controller = new SolarSystemController(new SolarSystemModel());
+
+        assertTrue(controller.moonsVisible());
+        controller.setMoonsVisible(false);
+        assertFalse(controller.moonsVisible());
+        controller.setMoonsVisible(true);
+        assertTrue(controller.moonsVisible());
+    }
+
+    @Test
+    void moonRendersArraySizedToTotalMoonCount() {
+        SolarSystemController controller = new SolarSystemController(new SolarSystemModel());
+        int expectedMoonCount = controller.model().planets().stream()
+                .mapToInt(p -> p.moons().size())
+                .sum();
+
+        assertEquals(expectedMoonCount, controller.moonRenders().length);
+    }
 }

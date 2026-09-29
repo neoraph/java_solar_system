@@ -10,6 +10,7 @@ public final class ThemeColors {
     public static final Color CONTROL_FG = new Color(210, 210, 230);      // #D2D2E6
     public static final Color ORBIT = new Color(80, 90, 120);             // #505A78
     public static final Color LABEL = new Color(220, 220, 230);           // #DCDCE6
+    public static final Color MOON_LABEL = new Color(170, 178, 200);      // #AAB2C8
     public static final Color LEADER = new Color(170, 182, 210, 180);     // #AAB6D2B4
     public static final Color HUD_BG = new Color(12, 16, 28, 210);        // #0C101CD2
     public static final Color HUD_TEXT = new Color(220, 230, 245);        // #DCE6F5

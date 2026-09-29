@@ -1,6 +1,7 @@
 package com.raph.solarsystem.view;
 
 import com.raph.solarsystem.i18n.I18n;
+import com.raph.solarsystem.model.Moon;
 import com.raph.solarsystem.model.OrbitalPosition;
 import com.raph.solarsystem.model.Planet;
 import com.raph.solarsystem.model.SolarSystemModel;
@@ -17,6 +18,7 @@ import java.util.Map;
 public class SolarSystemRenderer {
     private boolean tiltEnabled = true;
     private double tiltStrength = 0.6;
+    private double bodyScale = 1.0;
     private boolean antialiasEnabled = true;
     private int orbitSegments = 360;
     private final List<Path2D> orbitCache = new ArrayList<>();
@@ -58,6 +60,15 @@ public class SolarSystemRenderer {
         antialiasEnabled = enabled;
     }
 
+    /**
+     * Grows planets and moons as the view zooms in. Without this, zooming only spreads
+     * orbits apart while bodies stay a few pixels wide, so deep zoom reveals no detail.
+     * The exponent keeps growth sub-linear so bodies never swamp the screen.
+     */
+    public void setZoom(double zoom) {
+        bodyScale = clamp(Math.pow(Math.max(zoom, 0.01), 0.55), 0.8, 9.0);
+    }
+
     public void setOrbitSegments(int segments) {
         int clamped = (int) clamp(segments, 72, 360);
         if (orbitSegments != clamped) {
@@ -95,14 +106,20 @@ public class SolarSystemRenderer {
     private void drawPlanets(Graphics2D g2, SolarSystemModel model, RenderContext ctx) {
         List<Planet> planets = model.planets();
         List<PlanetDraw> draws = new ArrayList<>(planets.size());
-        List<LabeledPlanetDraw> labeledDraws = new ArrayList<>(planets.size());
+        List<LabeledBody> labeledBodies = new ArrayList<>();
+        int[] moonOffsets = new int[planets.size()];
+        int runningMoonOffset = 0;
+        for (int i = 0; i < planets.size(); i++) {
+            moonOffsets[i] = runningMoonOffset;
+            runningMoonOffset += planets.get(i).moons().size();
+        }
         for (int i = 0; i < planets.size(); i++) {
             Planet p = planets.get(i);
             OrbitalPosition pos = p.positionAtDays(model.simDays());
             ProjectedPoint proj = project(pos.x(), pos.y(), p.inclinationDeg());
             double x = ctx.centerX() + proj.x() * ctx.scale();
             double y = ctx.centerY() + proj.y() * ctx.scale();
-            double radius = planetRadius(p.name()) * proj.sizeScale() * perspectiveSizeScale(proj.depth());
+            double radius = planetRadius(p.name()) * bodyScale * proj.sizeScale() * perspectiveSizeScale(proj.depth());
             draws.add(new PlanetDraw(i, p, pos, x, y, radius, proj.depth()));
         }
 
@@ -117,19 +134,18 @@ public class SolarSystemRenderer {
                     draw.radius() * 2
             ));
 
-            g2.setColor(ThemeColors.LABEL);
-            String cacheKey = draw.planet().name() + "|" + ctx.locale().getLanguage();
-            String label = labelCache.computeIfAbsent(
-                    cacheKey,
-                    ignored -> I18n.tr(
-                            ctx.locale(),
-                            "renderer.planetLabel",
-                            I18n.planetName(ctx.locale(), draw.planet().name()),
-                            String.format(ctx.locale(), "%.1f", draw.planet().semiMajorAu()),
-                            String.format(ctx.locale(), "%.0f", draw.planet().periodDays())
-                    )
-            );
-            labeledDraws.add(new LabeledPlanetDraw(draw, label));
+            if (ctx.moonsVisible()) {
+                drawMoons(g2, model, ctx, draw, moonOffsets[draw.index()], labeledBodies);
+            }
+
+            labeledBodies.add(new LabeledBody(
+                    draw.index(),
+                    false,
+                    draw.screenX(),
+                    draw.screenY(),
+                    draw.radius(),
+                    planetLabel(ctx, draw.planet())
+            ));
 
             ctx.updatePlanetRender(
                     draw.index(),
@@ -138,24 +154,103 @@ public class SolarSystemRenderer {
         }
 
         if (ctx.labelsVisible()) {
-            FontMetrics fm = g2.getFontMetrics();
-            List<Rectangle> occupiedLabels = new ArrayList<>(labeledDraws.size());
-            labeledDraws.sort(Comparator.comparingInt(item -> item.draw().index()));
-            for (LabeledPlanetDraw item : labeledDraws) {
-                PlanetDraw draw = item.draw();
-                String label = item.label();
-                Point labelAnchor = placeLabel(draw, label, fm, occupiedLabels, ctx.width(), ctx.height());
-                drawLeaderLine(g2, draw, labelAnchor, fm.stringWidth(label), fm);
-                g2.setColor(ThemeColors.LABEL);
-                g2.drawString(label, labelAnchor.x, labelAnchor.y);
-                occupiedLabels.add(new Rectangle(
-                        labelAnchor.x - 2,
-                        labelAnchor.y - fm.getAscent(),
-                        fm.stringWidth(label) + 4,
-                        fm.getHeight()
-                ));
-            }
+            drawBodyLabels(g2, labeledBodies, ctx);
         }
+    }
+
+    private void drawMoons(
+            Graphics2D g2,
+            SolarSystemModel model,
+            RenderContext ctx,
+            PlanetDraw parentDraw,
+            int moonBaseIndex,
+            List<LabeledBody> labeledBodies
+    ) {
+        List<Moon> moons = parentDraw.planet().moons();
+        Color faintOrbit = new Color(ThemeColors.ORBIT.getRed(), ThemeColors.ORBIT.getGreen(), ThemeColors.ORBIT.getBlue(), 90);
+        for (int j = 0; j < moons.size(); j++) {
+            Moon moon = moons.get(j);
+            double orbitRadiusPx = parentDraw.radius() * moon.orbitRadiusFactor();
+
+            g2.setColor(faintOrbit);
+            g2.draw(new Ellipse2D.Double(
+                    parentDraw.screenX() - orbitRadiusPx,
+                    parentDraw.screenY() - orbitRadiusPx,
+                    orbitRadiusPx * 2,
+                    orbitRadiusPx * 2
+            ));
+
+            OrbitalPosition unitPos = moon.unitPositionAtDays(model.simDays());
+            ProjectedPoint proj = project(unitPos.x() * orbitRadiusPx, unitPos.y() * orbitRadiusPx, moon.inclinationDeg());
+            double mx = parentDraw.screenX() + proj.x();
+            double my = parentDraw.screenY() + proj.y();
+            double mr = moon.sizeFactor() * bodyScale * proj.sizeScale();
+
+            g2.setColor(applyDepth(moon.color(), parentDraw.depth()));
+            g2.fill(new Ellipse2D.Double(mx - mr, my - mr, mr * 2, mr * 2));
+
+            labeledBodies.add(new LabeledBody(moonBaseIndex + j, true, mx, my, mr, moonLabel(ctx, moon)));
+
+            ctx.updateMoonRender(moonBaseIndex + j, new MoonRender(parentDraw.planet(), moon, mx, my, mr));
+        }
+    }
+
+    private String planetLabel(RenderContext ctx, Planet planet) {
+        return labelCache.computeIfAbsent(
+                "planet|" + planet.name() + "|" + ctx.locale().getLanguage(),
+                ignored -> I18n.tr(
+                        ctx.locale(),
+                        "renderer.planetLabel",
+                        I18n.planetName(ctx.locale(), planet.name()),
+                        String.format(ctx.locale(), "%.1f", planet.semiMajorAu()),
+                        String.format(ctx.locale(), "%.0f", planet.periodDays())
+                )
+        );
+    }
+
+    private String moonLabel(RenderContext ctx, Moon moon) {
+        return labelCache.computeIfAbsent(
+                "moon|" + moon.name() + "|" + ctx.locale().getLanguage(),
+                ignored -> I18n.tr(
+                        ctx.locale(),
+                        "renderer.moonLabel",
+                        I18n.moonName(ctx.locale(), moon.name()),
+                        String.format(ctx.locale(), "%.1f", moon.periodDays())
+                )
+        );
+    }
+
+    /**
+     * Places and draws labels for planets and moons through a single collision-avoiding
+     * pass, so a moon label never overlaps a planet label (or another moon label).
+     * Planets are laid out first to keep their preferred anchor positions.
+     */
+    private void drawBodyLabels(Graphics2D g2, List<LabeledBody> bodies, RenderContext ctx) {
+        Font baseFont = g2.getFont();
+        Font moonFont = baseFont.deriveFont(Math.max(9.0f, baseFont.getSize2D() - 2.0f));
+        FontMetrics planetFm = g2.getFontMetrics(baseFont);
+        FontMetrics moonFm = g2.getFontMetrics(moonFont);
+
+        List<LabeledBody> ordered = new ArrayList<>(bodies);
+        ordered.sort(Comparator.comparing(LabeledBody::moon).thenComparingInt(LabeledBody::order));
+
+        List<Rectangle> occupiedLabels = new ArrayList<>(ordered.size());
+        for (LabeledBody body : ordered) {
+            FontMetrics fm = body.moon() ? moonFm : planetFm;
+            String label = body.label();
+            Point labelAnchor = placeLabel(body, label, fm, occupiedLabels, ctx.width(), ctx.height());
+            drawLeaderLine(g2, body, labelAnchor, fm.stringWidth(label), fm);
+            g2.setFont(body.moon() ? moonFont : baseFont);
+            g2.setColor(body.moon() ? ThemeColors.MOON_LABEL : ThemeColors.LABEL);
+            g2.drawString(label, labelAnchor.x, labelAnchor.y);
+            occupiedLabels.add(new Rectangle(
+                    labelAnchor.x - 2,
+                    labelAnchor.y - fm.getAscent(),
+                    fm.stringWidth(label) + 4,
+                    fm.getHeight()
+            ));
+        }
+        g2.setFont(baseFont);
     }
 
     private void drawOverlay(Graphics2D g2, SolarSystemModel model, RenderContext ctx) {
@@ -264,7 +359,7 @@ public class SolarSystemRenderer {
     }
 
     private Point placeLabel(
-            PlanetDraw draw,
+            LabeledBody body,
             String label,
             FontMetrics fm,
             List<Rectangle> occupiedLabels,
@@ -275,10 +370,10 @@ public class SolarSystemRenderer {
         int textHeight = fm.getHeight();
         int ascent = fm.getAscent();
         int margin = 6;
-        int baseX = (int) (draw.screenX() + draw.radius() + margin);
-        int baseY = (int) (draw.screenY() - draw.radius() - 3);
+        int baseX = (int) (body.screenX() + body.radius() + margin);
+        int baseY = (int) (body.screenY() - body.radius() - 3);
 
-        int[] xOffsets = new int[]{0, 0, -textWidth - (int) (draw.radius() * 2) - 12, -textWidth - (int) (draw.radius() * 2) - 12};
+        int[] xOffsets = new int[]{0, 0, -textWidth - (int) (body.radius() * 2) - 12, -textWidth - (int) (body.radius() * 2) - 12};
         int[] yOffsets = new int[]{0, textHeight + 2, 0, textHeight + 2};
         Point best = null;
         double bestScore = Double.MAX_VALUE;
@@ -314,21 +409,21 @@ public class SolarSystemRenderer {
         return false;
     }
 
-    private void drawLeaderLine(Graphics2D g2, PlanetDraw draw, Point labelAnchor, int textWidth, FontMetrics fm) {
+    private void drawLeaderLine(Graphics2D g2, LabeledBody body, Point labelAnchor, int textWidth, FontMetrics fm) {
         double labelCenterY = labelAnchor.y - fm.getAscent() / 2.0;
         double labelCenterX = labelAnchor.x + textWidth / 2.0;
-        double dx = labelCenterX - draw.screenX();
-        double dy = labelCenterY - draw.screenY();
+        double dx = labelCenterX - body.screenX();
+        double dy = labelCenterY - body.screenY();
         double dist = Math.hypot(dx, dy);
-        if (dist < draw.radius() + 8.0) {
+        if (dist < body.radius() + 8.0) {
             return;
         }
 
         double ux = dx / dist;
         double uy = dy / dist;
-        int startX = (int) Math.round(draw.screenX() + ux * (draw.radius() + 2.0));
-        int startY = (int) Math.round(draw.screenY() + uy * (draw.radius() + 2.0));
-        int endX = (int) Math.round(labelAnchor.x + (labelCenterX >= draw.screenX() ? -3.0 : textWidth + 3.0));
+        int startX = (int) Math.round(body.screenX() + ux * (body.radius() + 2.0));
+        int startY = (int) Math.round(body.screenY() + uy * (body.radius() + 2.0));
+        int endX = (int) Math.round(labelAnchor.x + (labelCenterX >= body.screenX() ? -3.0 : textWidth + 3.0));
         int endY = (int) Math.round(labelCenterY);
 
         Stroke prevStroke = g2.getStroke();
@@ -389,5 +484,13 @@ public class SolarSystemRenderer {
             double depth
     ) {}
 
-    private record LabeledPlanetDraw(PlanetDraw draw, String label) {}
+    /** A planet or a moon reduced to what the shared label pass needs. */
+    private record LabeledBody(
+            int order,
+            boolean moon,
+            double screenX,
+            double screenY,
+            double radius,
+            String label
+    ) {}
 }

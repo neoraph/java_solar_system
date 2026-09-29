@@ -7,6 +7,8 @@ import java.awt.Color;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 public final class PlanetDataLoader {
     private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -38,10 +40,38 @@ public final class PlanetDataLoader {
             double eccentricity,
             double periodDays,
             double inclinationDeg,
-            String color
+            String color,
+            List<MoonSpec> moons
     ) {
         Planet toPlanet() {
-            return new Planet(name, semiMajorAu, eccentricity, periodDays, inclinationDeg, parseColor(color));
+            List<Moon> parsedMoons = moons == null
+                    ? List.of()
+                    : moons.stream().map(MoonSpec::toMoon).collect(Collectors.toList());
+            return new Planet(name, semiMajorAu, eccentricity, periodDays, inclinationDeg, parseColor(color), parsedMoons);
+        }
+    }
+
+    private record MoonSpec(
+            String name,
+            double eccentricity,
+            double periodDays,
+            double inclinationDeg,
+            String color,
+            double orbitRadiusFactor,
+            double sizeFactor,
+            double distanceKm
+    ) {
+        Moon toMoon() {
+            return new Moon(
+                    Objects.requireNonNull(name, "moon name"),
+                    eccentricity,
+                    periodDays,
+                    inclinationDeg,
+                    parseColor(color),
+                    orbitRadiusFactor,
+                    sizeFactor,
+                    distanceKm
+            );
         }
     }
 
