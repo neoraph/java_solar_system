@@ -48,4 +48,8 @@ public final class I18n {
     public static String planetName(Locale locale, String englishName) {
         return trOrDefault(locale, "planet." + englishName, englishName);
     }
+
+    public static String moonName(Locale locale, String englishName) {
+        return trOrDefault(locale, "moon." + englishName, englishName);
+    }
 }

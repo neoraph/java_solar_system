@@ -9,30 +9,33 @@ import java.awt.event.ItemEvent;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
+import java.util.function.DoubleConsumer;
 import java.util.function.IntConsumer;
 
 public class ControlsPanel extends JPanel {
+    /** Logarithmic so the useful low end doesn't collapse into a few pixels. */
+    static final LogScale ZOOM_SCALE = new LogScale(0.25, 200.0, 1000);
+
+    /** Fast moons (Phobos orbits in 0.32 d) need sub-day/sec speeds to be readable. */
+    static final LogScale SPEED_SCALE = new LogScale(0.01, 400.0, 1000);
+
     private final SolarSystemController controller;
     private final Runnable onStateChanged;
     private final IntConsumer onFpsChanged;
     private final Consumer<Boolean> onPerformanceModeChanged;
     private final Consumer<Double> onZoomChanged;
+    private final Runnable onResetView;
     private final Consumer<Locale> onLocaleChanged;
 
     private final JLabel speedLabel;
-    private final JButton preset1;
-    private final JButton preset10;
-    private final JButton preset100;
     private final JButton pauseButton;
     private final JButton resetButton;
     private final JCheckBox tiltBox;
     private final JLabel tiltLabel;
     private final JCheckBox labelsBox;
+    private final JCheckBox moonsBox;
     private final JCheckBox hoverBox;
     private final JLabel fpsLabel;
-    private final JButton fps20;
-    private final JButton fps30;
-    private final JButton fps60;
     private final JCheckBox perfModeBox;
     private final JLabel zoomLabel;
     private final JButton zoomFit;
@@ -46,6 +49,7 @@ public class ControlsPanel extends JPanel {
             IntConsumer onFpsChanged,
             Consumer<Boolean> onPerformanceModeChanged,
             Consumer<Double> onZoomChanged,
+            Runnable onResetView,
             Consumer<Locale> onLocaleChanged
     ) {
         this.controller = controller;
@@ -53,128 +57,140 @@ public class ControlsPanel extends JPanel {
         this.onFpsChanged = onFpsChanged;
         this.onPerformanceModeChanged = onPerformanceModeChanged;
         this.onZoomChanged = onZoomChanged;
+        this.onResetView = onResetView;
         this.onLocaleChanged = onLocaleChanged;
 
         setBackground(ThemeColors.PANEL_BG);
         setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
         setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
 
-        speedLabel = new JLabel();
-        speedLabel.setForeground(ThemeColors.CONTROL_FG);
-
-        JSlider speedSlider = new JSlider(1, 400, 15);
-        speedSlider.setOpaque(false);
-        speedSlider.addChangeListener(e -> {
-            int value = speedSlider.getValue();
-            speedLabel.setText(I18n.tr(controller.locale(), "controls.speed", value));
+        speedLabel = createLabel();
+        JSlider speedSlider = createLogSlider(SPEED_SCALE, 15.0, value -> {
+            speedLabel.setText(tr("controls.speed", formatSpeed(value)));
             controller.setDaysPerSecond(value);
             onStateChanged.run();
         });
+        JButton presetSlow = createButton("0.05x", () -> setSpeedPreset(speedSlider, 0.05));
+        JButton preset1 = createButton("1x", () -> setSpeedPreset(speedSlider, 1));
+        JButton preset10 = createButton("10x", () -> setSpeedPreset(speedSlider, 10));
+        JButton preset100 = createButton("100x", () -> setSpeedPreset(speedSlider, 100));
 
-        preset1 = new JButton("1x");
-        preset1.addActionListener(e -> setSpeedPreset(speedSlider, 1));
-        preset10 = new JButton("10x");
-        preset10.addActionListener(e -> setSpeedPreset(speedSlider, 10));
-        preset100 = new JButton("100x");
-        preset100.addActionListener(e -> setSpeedPreset(speedSlider, 100));
-
-        pauseButton = new JButton();
-        pauseButton.addActionListener(e -> {
+        pauseButton = createButton(null, button -> {
             boolean paused = controller.togglePause();
-            pauseButton.setText(I18n.tr(controller.locale(), paused ? "controls.resume" : "controls.pause"));
-            onStateChanged.run();
+            button.setText(tr(paused ? "controls.resume" : "controls.pause"));
         });
+        resetButton = createButton(null, controller::resetTime);
 
-        resetButton = new JButton();
-        resetButton.addActionListener(e -> {
-            controller.resetTime();
-            onStateChanged.run();
-        });
-
-        tiltBox = new JCheckBox();
-        tiltBox.setForeground(ThemeColors.CONTROL_FG);
-        tiltBox.setOpaque(false);
-        tiltBox.setSelected(controller.tiltEnabled());
-        tiltBox.addActionListener(e -> {
-            controller.setTiltEnabled(tiltBox.isSelected());
-            onStateChanged.run();
-        });
-
-        tiltLabel = new JLabel();
-        tiltLabel.setForeground(ThemeColors.CONTROL_FG);
-        JSlider tiltSlider = new JSlider(0, 100, 60);
-        tiltSlider.setOpaque(false);
-        tiltSlider.addChangeListener(e -> {
-            int value = tiltSlider.getValue();
-            tiltLabel.setText(I18n.tr(controller.locale(), "controls.tiltStrength", value));
+        tiltBox = createCheckBox(controller.tiltEnabled(), controller::setTiltEnabled);
+        tiltLabel = createLabel();
+        JSlider tiltSlider = createSlider(0, 100, 60, value -> {
+            tiltLabel.setText(tr("controls.tiltStrength", value));
             controller.setTiltStrength(value / 100.0);
             onStateChanged.run();
         });
 
-        hoverBox = new JCheckBox();
-        hoverBox.setForeground(ThemeColors.CONTROL_FG);
-        hoverBox.setOpaque(false);
-        hoverBox.setSelected(true);
-        hoverBox.addActionListener(e -> {
-            controller.setHoverInfoEnabled(hoverBox.isSelected());
-            onStateChanged.run();
-        });
+        hoverBox = createCheckBox(true, controller::setHoverInfoEnabled);
+        labelsBox = createCheckBox(controller.labelsVisible(), controller::setLabelsVisible);
+        moonsBox = createCheckBox(controller.moonsVisible(), controller::setMoonsVisible);
 
-        labelsBox = new JCheckBox();
-        labelsBox.setForeground(ThemeColors.CONTROL_FG);
-        labelsBox.setOpaque(false);
-        labelsBox.setSelected(controller.labelsVisible());
-        labelsBox.addActionListener(e -> {
-            controller.setLabelsVisible(labelsBox.isSelected());
-            onStateChanged.run();
-        });
-
-        fpsLabel = new JLabel();
-        fpsLabel.setForeground(ThemeColors.CONTROL_FG);
-        JSlider fpsSlider = new JSlider(10, 120, 30);
-        fpsSlider.setOpaque(false);
-        fpsSlider.addChangeListener(e -> {
-            int fps = fpsSlider.getValue();
-            fpsLabel.setText(I18n.tr(controller.locale(), "controls.fps", fps));
+        fpsLabel = createLabel();
+        JSlider fpsSlider = createSlider(10, 120, 30, fps -> {
+            fpsLabel.setText(tr("controls.fps", fps));
             onFpsChanged.accept(fps);
         });
-        fps20 = new JButton("20 FPS");
-        fps20.addActionListener(e -> setFpsPreset(fpsSlider, 20));
-        fps30 = new JButton("30 FPS");
-        fps30.addActionListener(e -> setFpsPreset(fpsSlider, 30));
-        fps60 = new JButton("60 FPS");
-        fps60.addActionListener(e -> setFpsPreset(fpsSlider, 60));
+        JButton fps20 = createButton("20 FPS", () -> fpsSlider.setValue(20));
+        JButton fps30 = createButton("30 FPS", () -> fpsSlider.setValue(30));
+        JButton fps60 = createButton("60 FPS", () -> fpsSlider.setValue(60));
 
-        perfModeBox = new JCheckBox();
-        perfModeBox.setForeground(ThemeColors.CONTROL_FG);
-        perfModeBox.setOpaque(false);
-        perfModeBox.addActionListener(e -> {
-            onPerformanceModeChanged.accept(perfModeBox.isSelected());
+        perfModeBox = createCheckBox(false, onPerformanceModeChanged::accept);
+
+        zoomLabel = createLabel();
+        JSlider zoomSlider = createLogSlider(ZOOM_SCALE, 1.0, zoom -> {
+            zoomLabel.setText(tr("controls.zoom", formatZoomPercent(zoom)));
+            onZoomChanged.accept(zoom);
             onStateChanged.run();
         });
+        zoomFit = createButton(null, () -> {
+            zoomSlider.setValue(ZOOM_SCALE.toSlider(1.0));
+            onResetView.run();
+        });
 
-        zoomLabel = new JLabel();
-        zoomLabel.setForeground(ThemeColors.CONTROL_FG);
-        JSlider zoomSlider = new JSlider(25, 400, 100);
-        zoomSlider.setOpaque(false);
-        zoomSlider.addChangeListener(e -> {
-            int zoomPercent = zoomSlider.getValue();
-            zoomLabel.setText(I18n.tr(controller.locale(), "controls.zoom", zoomPercent));
-            onZoomChanged.accept(zoomPercent / 100.0);
+        languageLabel = createLabel();
+        languageBox = createLanguageBox(speedSlider, tiltSlider, fpsSlider, zoomSlider);
+
+        layOutControls(
+                speedSlider, presetSlow, preset1, preset10, preset100,
+                tiltSlider, fpsSlider, fps20, fps30, fps60, zoomSlider
+        );
+
+        refreshTexts(speedSlider.getValue(), tiltSlider.getValue(), fpsSlider.getValue(), zoomSlider.getValue());
+    }
+
+    private JLabel createLabel() {
+        JLabel label = new JLabel();
+        label.setForeground(ThemeColors.CONTROL_FG);
+        return label;
+    }
+
+    /** Creates a checkbox that pushes its state to {@code onToggle} and then refreshes the view. */
+    private JCheckBox createCheckBox(boolean selected, Consumer<Boolean> onToggle) {
+        JCheckBox box = new JCheckBox();
+        box.setForeground(ThemeColors.CONTROL_FG);
+        box.setOpaque(false);
+        box.setSelected(selected);
+        box.addActionListener(e -> {
+            onToggle.accept(box.isSelected());
             onStateChanged.run();
         });
-        zoomFit = new JButton();
-        zoomFit.addActionListener(e -> setZoomPreset(zoomSlider, 100));
+        return box;
+    }
 
-        languageLabel = new JLabel();
-        languageLabel.setForeground(ThemeColors.CONTROL_FG);
-        languageBox = new JComboBox<>(new LocaleOption[]{
+    /** Creates a button; pass {@code null} as text for buttons whose caption is localized later. */
+    private JButton createButton(String text, Runnable action) {
+        return createButton(text, button -> action.run());
+    }
+
+    /** Variant for actions that need to mutate the button itself (e.g. a toggling caption). */
+    private JButton createButton(String text, Consumer<JButton> action) {
+        JButton button = text == null ? new JButton() : new JButton(text);
+        button.addActionListener(e -> {
+            action.accept(button);
+            onStateChanged.run();
+        });
+        return button;
+    }
+
+    private JSlider createSlider(int min, int max, int value, IntConsumer onChange) {
+        JSlider slider = new JSlider(min, max, value);
+        slider.setOpaque(false);
+        slider.addChangeListener(e -> onChange.accept(slider.getValue()));
+        return slider;
+    }
+
+    /** Wraps {@link #createSlider} so callers work in real units instead of raw slider ticks. */
+    private JSlider createLogSlider(LogScale scale, double initialValue, DoubleConsumer onChange) {
+        return createSlider(0, scale.steps(), scale.toSlider(initialValue), tick -> onChange.accept(scale.toValue(tick)));
+    }
+
+    /** Moves the slider, then re-applies the exact value so slider quantization can't drift it. */
+    private void setSpeedPreset(JSlider slider, double daysPerSecond) {
+        slider.setValue(SPEED_SCALE.toSlider(daysPerSecond));
+        controller.setDaysPerSecond(daysPerSecond);
+    }
+
+    private JComboBox<LocaleOption> createLanguageBox(
+            JSlider speedSlider,
+            JSlider tiltSlider,
+            JSlider fpsSlider,
+            JSlider zoomSlider
+    ) {
+        JComboBox<LocaleOption> box = new JComboBox<>(new LocaleOption[]{
                 new LocaleOption(I18n.EN),
                 new LocaleOption(I18n.FR),
                 new LocaleOption(I18n.JA)
         });
         lastAppliedLocale = controller.locale();
-        languageBox.setRenderer(new DefaultListCellRenderer() {
+        box.setRenderer(new DefaultListCellRenderer() {
             @Override
             public Component getListCellRendererComponent(
                     JList<?> list,
@@ -185,82 +201,90 @@ public class ControlsPanel extends JPanel {
             ) {
                 JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 if (value instanceof LocaleOption option) {
-                    label.setText(I18n.tr(controller.locale(), localeLabelKey(option.locale())));
+                    label.setText(tr(localeLabelKey(option.locale())));
                 }
                 return label;
             }
         });
-        languageBox.setSelectedIndex(Math.max(0, I18n.supportedLocales().indexOf(controller.locale())));
-        languageBox.addItemListener(e -> {
+        box.setSelectedIndex(Math.max(0, I18n.supportedLocales().indexOf(controller.locale())));
+        box.addItemListener(e -> {
             if (e.getStateChange() != ItemEvent.SELECTED) {
                 return;
             }
             applySelectedLocale(speedSlider, tiltSlider, fpsSlider, zoomSlider);
         });
-        languageBox.addActionListener(e -> applySelectedLocale(speedSlider, tiltSlider, fpsSlider, zoomSlider));
-
-        add(speedLabel);
-        add(Box.createHorizontalStrut(10));
-        add(speedSlider);
-        add(Box.createHorizontalStrut(8));
-        add(preset1);
-        add(Box.createHorizontalStrut(4));
-        add(preset10);
-        add(Box.createHorizontalStrut(4));
-        add(preset100);
-        add(Box.createHorizontalStrut(14));
-        add(pauseButton);
-        add(Box.createHorizontalStrut(8));
-        add(resetButton);
-        add(Box.createHorizontalStrut(14));
-        add(tiltBox);
-        add(Box.createHorizontalStrut(8));
-        add(tiltLabel);
-        add(Box.createHorizontalStrut(6));
-        add(tiltSlider);
-        add(Box.createHorizontalStrut(10));
-        add(hoverBox);
-        add(Box.createHorizontalStrut(10));
-        add(labelsBox);
-        add(Box.createHorizontalStrut(10));
-        add(fpsLabel);
-        add(Box.createHorizontalStrut(6));
-        add(fpsSlider);
-        add(Box.createHorizontalStrut(6));
-        add(fps20);
-        add(Box.createHorizontalStrut(4));
-        add(fps30);
-        add(Box.createHorizontalStrut(4));
-        add(fps60);
-        add(Box.createHorizontalStrut(10));
-        add(perfModeBox);
-        add(Box.createHorizontalStrut(10));
-        add(zoomLabel);
-        add(Box.createHorizontalStrut(6));
-        add(zoomSlider);
-        add(Box.createHorizontalStrut(6));
-        add(zoomFit);
-        add(Box.createHorizontalStrut(10));
-        add(languageLabel);
-        add(Box.createHorizontalStrut(6));
-        add(languageBox);
-
-        refreshTexts(speedSlider.getValue(), tiltSlider.getValue(), fpsSlider.getValue(), zoomSlider.getValue());
+        box.addActionListener(e -> applySelectedLocale(speedSlider, tiltSlider, fpsSlider, zoomSlider));
+        return box;
     }
 
-    private void refreshTexts(int speed, int tilt, int fps, int zoomPercent) {
-        speedLabel.setText(I18n.tr(controller.locale(), "controls.speed", speed));
-        pauseButton.setText(I18n.tr(controller.locale(), controller.paused() ? "controls.resume" : "controls.pause"));
-        resetButton.setText(I18n.tr(controller.locale(), "controls.reset"));
-        tiltBox.setText(I18n.tr(controller.locale(), "controls.tilt"));
-        tiltLabel.setText(I18n.tr(controller.locale(), "controls.tiltStrength", tilt));
-        hoverBox.setText(I18n.tr(controller.locale(), "controls.hoverInfo"));
-        labelsBox.setText(I18n.tr(controller.locale(), "controls.labels"));
-        fpsLabel.setText(I18n.tr(controller.locale(), "controls.fps", fps));
-        perfModeBox.setText(I18n.tr(controller.locale(), "controls.performance"));
-        zoomLabel.setText(I18n.tr(controller.locale(), "controls.zoom", zoomPercent));
-        zoomFit.setText(I18n.tr(controller.locale(), "controls.fit"));
-        languageLabel.setText(I18n.tr(controller.locale(), "controls.language"));
+    private void layOutControls(
+            JSlider speedSlider,
+            JButton presetSlow,
+            JButton preset1,
+            JButton preset10,
+            JButton preset100,
+            JSlider tiltSlider,
+            JSlider fpsSlider,
+            JButton fps20,
+            JButton fps30,
+            JButton fps60,
+            JSlider zoomSlider
+    ) {
+        addSpaced(10, speedLabel, speedSlider);
+        addGap(8);
+        addSpaced(4, presetSlow, preset1, preset10, preset100);
+        addGap(14);
+        addSpaced(8, pauseButton, resetButton);
+        addGap(14);
+        addSpaced(8, tiltBox, tiltLabel);
+        addGap(6);
+        add(tiltSlider);
+        addGap(10);
+        addSpaced(10, hoverBox, labelsBox, moonsBox);
+        addGap(10);
+        addSpaced(6, fpsLabel, fpsSlider, fps20);
+        addGap(4);
+        addSpaced(4, fps30, fps60);
+        addGap(10);
+        add(perfModeBox);
+        addGap(10);
+        addSpaced(6, zoomLabel, zoomSlider, zoomFit);
+        addGap(10);
+        addSpaced(6, languageLabel, languageBox);
+    }
+
+    /** Adds components left to right, separated by {@code gap} pixels. */
+    private void addSpaced(int gap, Component... components) {
+        for (int i = 0; i < components.length; i++) {
+            if (i > 0) {
+                addGap(gap);
+            }
+            add(components[i]);
+        }
+    }
+
+    private void addGap(int gap) {
+        add(Box.createHorizontalStrut(gap));
+    }
+
+    private void refreshTexts(int speedSliderValue, int tilt, int fps, int zoomSliderValue) {
+        speedLabel.setText(tr("controls.speed", formatSpeed(SPEED_SCALE.toValue(speedSliderValue))));
+        pauseButton.setText(tr(controller.paused() ? "controls.resume" : "controls.pause"));
+        resetButton.setText(tr("controls.reset"));
+        tiltBox.setText(tr("controls.tilt"));
+        tiltLabel.setText(tr("controls.tiltStrength", tilt));
+        hoverBox.setText(tr("controls.hoverInfo"));
+        labelsBox.setText(tr("controls.labels"));
+        moonsBox.setText(tr("controls.moons"));
+        fpsLabel.setText(tr("controls.fps", fps));
+        perfModeBox.setText(tr("controls.performance"));
+        zoomLabel.setText(tr("controls.zoom", formatZoomPercent(ZOOM_SCALE.toValue(zoomSliderValue))));
+        zoomFit.setText(tr("controls.fit"));
+        languageLabel.setText(tr("controls.language"));
+    }
+
+    private String tr(String key, Object... args) {
+        return I18n.tr(controller.locale(), key, args);
     }
 
     private String localeLabelKey(Locale locale) {
@@ -298,21 +322,26 @@ public class ControlsPanel extends JPanel {
         onStateChanged.run();
     }
 
-    private void setSpeedPreset(JSlider slider, int value) {
-        slider.setValue(value);
-        controller.setDaysPerSecond(value);
-        onStateChanged.run();
+    private String formatZoomPercent(double zoom) {
+        double percent = zoom * 100.0;
+        return String.format(controller.locale(), percent < 1000 ? "%.0f" : "%,.0f", percent);
     }
 
-    private void setFpsPreset(JSlider slider, int fps) {
-        slider.setValue(fps);
-        onFpsChanged.accept(fps);
+    private String formatSpeed(double daysPerSecond) {
+        String pattern = daysPerSecond < 0.1 ? "%.3f" : daysPerSecond < 10 ? "%.2f" : "%.0f";
+        return String.format(controller.locale(), pattern, daysPerSecond);
     }
 
-    private void setZoomPreset(JSlider slider, int zoomPercent) {
-        slider.setValue(zoomPercent);
-        onZoomChanged.accept(zoomPercent / 100.0);
-        onStateChanged.run();
+    /** Maps a linear slider range onto an exponential value range. */
+    record LogScale(double min, double max, int steps) {
+        int toSlider(double value) {
+            double clamped = Math.max(min, Math.min(max, value));
+            return (int) Math.round(Math.log(clamped / min) / Math.log(max / min) * steps);
+        }
+
+        double toValue(int sliderValue) {
+            return min * Math.pow(max / min, (double) sliderValue / steps);
+        }
     }
 
     private record LocaleOption(Locale locale) {}

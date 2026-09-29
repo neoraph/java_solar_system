@@ -2,9 +2,11 @@ package com.raph.solarsystem;
 
 import com.raph.solarsystem.controller.SolarSystemController;
 import com.raph.solarsystem.i18n.I18n;
+import com.raph.solarsystem.model.Moon;
 import com.raph.solarsystem.model.Planet;
 import com.raph.solarsystem.model.SolarSystemModel;
 import com.raph.solarsystem.view.ControlsPanel;
+import com.raph.solarsystem.view.MoonRender;
 import com.raph.solarsystem.view.PlanetRender;
 import com.raph.solarsystem.view.RenderContext;
 import com.raph.solarsystem.view.SolarSystemRenderer;
@@ -41,6 +43,7 @@ public class SolarSystemApp {
                 solarPanel::setTargetFps,
                 solarPanel::setPerformanceMode,
                 solarPanel::setZoom,
+                solarPanel::resetView,
                 onLocaleChanged
         ), BorderLayout.SOUTH);
         return root;
@@ -49,7 +52,7 @@ public class SolarSystemApp {
     static class SolarPanel extends JPanel {
         private static final int DEFAULT_FPS = 30;
         private static final double MIN_ZOOM = 0.25;
-        private static final double MAX_ZOOM = 4.0;
+        private static final double MAX_ZOOM = 200.0; // 200 %
         private final SolarSystemController controller;
         private final SolarSystemRenderer renderer;
         private final List<Point> stars = new java.util.ArrayList<>();
@@ -59,6 +62,9 @@ public class SolarSystemApp {
         private int starFieldWidth = -1;
         private int starFieldHeight = -1;
         private double zoom = 1.0;
+        private double panX = 0.0;
+        private double panY = 0.0;
+        private Point dragOrigin;
 
         SolarPanel() {
             setBackground(ThemeColors.SPACE_BG);
@@ -74,12 +80,38 @@ public class SolarSystemApp {
                 @Override
                 public void mouseMoved(java.awt.event.MouseEvent e) {
                     controller.setHoverRender(findHover(e.getX(), e.getY()));
+                    controller.setHoverMoonRender(findMoonHover(e.getX(), e.getY()));
+                    repaint();
+                }
+
+                @Override
+                public void mouseDragged(java.awt.event.MouseEvent e) {
+                    if (dragOrigin == null) {
+                        return;
+                    }
+                    panX += e.getX() - dragOrigin.x;
+                    panY += e.getY() - dragOrigin.y;
+                    dragOrigin = e.getPoint();
                     repaint();
                 }
             });
+            addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mousePressed(java.awt.event.MouseEvent e) {
+                    dragOrigin = e.getPoint();
+                    setCursor(Cursor.getPredefinedCursor(Cursor.MOVE_CURSOR));
+                    requestFocusInWindow();
+                }
+
+                @Override
+                public void mouseReleased(java.awt.event.MouseEvent e) {
+                    dragOrigin = null;
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            });
             addMouseWheelListener(e -> {
-                double factor = e.getPreciseWheelRotation() < 0 ? 1.1 : (1.0 / 1.1);
-                setZoom(zoom * factor);
+                double factor = Math.pow(1.15, -e.getPreciseWheelRotation());
+                zoomAt(zoom * factor, e.getX(), e.getY());
                 repaint();
             });
             setFocusable(true);
@@ -106,21 +138,21 @@ public class SolarSystemApp {
             actionMap.put("zoomIn", new AbstractAction() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    setZoom(zoom * 1.1);
+                    setZoom(zoom * 1.15);
                     repaint();
                 }
             });
             actionMap.put("zoomOut", new AbstractAction() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    setZoom(zoom / 1.1);
+                    setZoom(zoom / 1.15);
                     repaint();
                 }
             });
             actionMap.put("zoomFit", new AbstractAction() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    setZoom(1.0);
+                    resetView();
                     repaint();
                 }
             });
@@ -152,8 +184,8 @@ public class SolarSystemApp {
 
             int w = getWidth();
             int h = getHeight();
-            double cx = w / 2.0;
-            double cy = h / 2.0;
+            double cx = w / 2.0 + panX;
+            double cy = h / 2.0 + panY;
 
             paintStars(g2, w, h);
 
@@ -161,6 +193,7 @@ public class SolarSystemApp {
 
             renderer.setTiltEnabled(controller.tiltEnabled());
             renderer.setTiltStrength(controller.tiltStrength());
+            renderer.setZoom(zoom);
             renderer.render(g2, controller.model(), new RenderContext(
                     cx,
                     cy,
@@ -170,9 +203,11 @@ public class SolarSystemApp {
                     controller.paused(),
                     controller.hoverInfoEnabled(),
                     controller.labelsVisible(),
+                    controller.moonsVisible(),
                     controller.locale(),
                     controller.hoverRender(),
-                    controller.planetRenders()
+                    controller.planetRenders(),
+                    controller.moonRenders()
             ));
 
             g2.dispose();
@@ -203,7 +238,26 @@ public class SolarSystemApp {
 
         @Override
         public String getToolTipText(java.awt.event.MouseEvent event) {
-            if (!controller.hoverInfoEnabled() || controller.planetRenders() == null) {
+            if (!controller.hoverInfoEnabled()) {
+                return null;
+            }
+            if (controller.moonsVisible() && controller.moonRenders() != null) {
+                MoonRender moonHover = findMoonHover(event.getX(), event.getY());
+                if (moonHover != null) {
+                    Moon m = moonHover.moon();
+                    return I18n.tr(
+                            controller.locale(),
+                            "tooltip.moon",
+                            I18n.moonName(controller.locale(), m.name()),
+                            I18n.planetName(controller.locale(), moonHover.parent().name()),
+                            String.format(controller.locale(), "%.3f", m.eccentricity()),
+                            String.format(controller.locale(), "%.2f", m.inclinationDeg()),
+                            String.format(controller.locale(), "%.2f", m.periodDays()),
+                            String.format(controller.locale(), "%,.0f", m.distanceKm())
+                    );
+                }
+            }
+            if (controller.planetRenders() == null) {
                 return null;
             }
             PlanetRender best = findHover(event.getX(), event.getY());
@@ -240,6 +294,24 @@ public class SolarSystemApp {
             return best;
         }
 
+        private MoonRender findMoonHover(double mx, double my) {
+            MoonRender best = null;
+            double bestDist = Double.MAX_VALUE;
+            for (MoonRender render : controller.moonRenders()) {
+                if (render == null) {
+                    continue;
+                }
+                double dx = mx - render.screenX();
+                double dy = my - render.screenY();
+                double dist = Math.hypot(dx, dy);
+                if (dist < render.radius() + 6 && dist < bestDist) {
+                    bestDist = dist;
+                    best = render;
+                }
+            }
+            return best;
+        }
+
         void setTargetFps(int fps) {
             int safeFps = Math.max(1, fps);
             timer.setDelay(1000 / safeFps);
@@ -253,6 +325,23 @@ public class SolarSystemApp {
 
         void setZoom(double zoomValue) {
             zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomValue));
+        }
+
+        /** Zooms while keeping the world point under ({@code anchorX}, {@code anchorY}) fixed on screen. */
+        private void zoomAt(double zoomValue, double anchorX, double anchorY) {
+            double previousZoom = zoom;
+            setZoom(zoomValue);
+            double ratio = zoom / previousZoom;
+            double cx = getWidth() / 2.0 + panX;
+            double cy = getHeight() / 2.0 + panY;
+            panX += (cx - anchorX) * (ratio - 1.0);
+            panY += (cy - anchorY) * (ratio - 1.0);
+        }
+
+        void resetView() {
+            setZoom(1.0);
+            panX = 0.0;
+            panY = 0.0;
         }
     }
 

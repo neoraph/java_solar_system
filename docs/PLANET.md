@@ -12,6 +12,7 @@ Each planet entry uses:
 - `periodDays` - orbital period in days
 - `inclinationDeg` - inclination used for 3D-like projection
 - `color` - display color as `#RRGGBB`
+- `moons` - optional array of moon entries (omit or leave empty for none)
 
 Example:
 
@@ -22,31 +23,50 @@ Example:
   "eccentricity": 0.0167,
   "periodDays": 365.25,
   "inclinationDeg": 0.0,
-  "color": "#5082FF"
+  "color": "#5082FF",
+  "moons": [
+    {
+      "name": "Moon",
+      "eccentricity": 0.0549,
+      "periodDays": 27.322,
+      "inclinationDeg": 5.145,
+      "color": "#C8C8C8",
+      "orbitRadiusFactor": 3.0,
+      "sizeFactor": 1.6,
+      "distanceKm": 384400
+    }
+  ]
 }
 ```
+
+## Moons
+
+Each moon entry uses:
+
+- `name` - display name
+- `eccentricity`, `periodDays`, `inclinationDeg` - real orbital values, used to drive
+  motion speed and orbit shape accurately (same Kepler-equation math as planets,
+  shared via `KeplerOrbit`)
+- `color` - display color as `#RRGGBB`
+- `orbitRadiusFactor` - **display-only** distance, expressed as a multiple of the
+  parent planet's *rendered* pixel radius. Real moon distances (a few planet radii)
+  would be invisible at the AU-to-pixel scale used for planets, so this is an
+  artistic distance, consistent with planets already being drawn at
+  not-to-scale sizes (see `SolarSystemRenderer.planetRadius`).
+- `sizeFactor` - display-only dot radius in pixels
+- `distanceKm` - real average orbital distance in km, shown in the hover tooltip
+  for reference (not used for rendering)
 
 ## Notes
 
 - Colors are validated when loading.
 - Loading is performed by `PlanetDataLoader`.
 - The model reads data from classpath resource `/planets.json`.
-
-## Sources
-
-### Provenance Status (Current Repository)
-
-- Exact source file or dataset for each numeric value is **not recorded** in the repository.
-- `src/main/resources/planets.json` was introduced in the initial commit:
-  - commit `a94559afbbf6738435a6e192895cd9ca6ef1cac1`
-  - message: `Init Java Solar System with Swing`
-- No citation or generation script is present in that commit.
+- Moons are optional; a planet without a `moons` array gets an empty list.
 
 ### What We Can Infer
 
-The values appear to be rounded, standard textbook/NASA-style orbital constants
-for the 8 planets (good for visualization), but this is an inference.
-They should not be treated as an authoritative ephemeris dataset.
+The values should not be treated as an authoritative ephemeris dataset.
 
 Reference material used for orbital parameter ranges and terminology:
 

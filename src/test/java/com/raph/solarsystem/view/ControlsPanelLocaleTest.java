@@ -26,6 +26,7 @@ class ControlsPanelLocaleTest {
                     fps -> {},
                     enabled -> {},
                     zoom -> {},
+                    () -> {},
                     locale -> {}
             );
             panelRef.set(panel);

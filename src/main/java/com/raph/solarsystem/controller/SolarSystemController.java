@@ -2,6 +2,7 @@ package com.raph.solarsystem.controller;
 
 import com.raph.solarsystem.i18n.I18n;
 import com.raph.solarsystem.model.SolarSystemModel;
+import com.raph.solarsystem.view.MoonRender;
 import com.raph.solarsystem.view.PlanetRender;
 
 import java.util.Locale;
@@ -9,6 +10,7 @@ import java.util.Locale;
 public class SolarSystemController {
     private final SolarSystemModel model;
     private final PlanetRender[] planetRenders;
+    private MoonRender[] moonRenders;
 
     private double daysPerSecond = 15.0;
     private boolean paused = false;
@@ -16,12 +18,16 @@ public class SolarSystemController {
     private double tiltStrength = 0.6;
     private boolean labelsVisible = true;
     private boolean hoverInfoEnabled = true;
+    private boolean moonsVisible = true;
     private PlanetRender hoverRender;
+    private MoonRender hoverMoonRender;
     private Locale locale = I18n.normalize(Locale.getDefault());
 
     public SolarSystemController(SolarSystemModel model) {
         this.model = model;
         this.planetRenders = new PlanetRender[model.planets().size()];
+        int moonCount = model.planets().stream().mapToInt(p -> p.moons().size()).sum();
+        this.moonRenders = new MoonRender[moonCount];
     }
 
     public SolarSystemModel model() {
@@ -32,12 +38,32 @@ public class SolarSystemController {
         return planetRenders;
     }
 
+    public MoonRender[] moonRenders() {
+        return moonRenders;
+    }
+
     public PlanetRender hoverRender() {
         return hoverRender;
     }
 
     public void setHoverRender(PlanetRender render) {
         this.hoverRender = render;
+    }
+
+    public MoonRender hoverMoonRender() {
+        return hoverMoonRender;
+    }
+
+    public void setHoverMoonRender(MoonRender render) {
+        this.hoverMoonRender = render;
+    }
+
+    public boolean moonsVisible() {
+        return moonsVisible;
+    }
+
+    public void setMoonsVisible(boolean visible) {
+        moonsVisible = visible;
     }
 
     public double daysPerSecond() {
